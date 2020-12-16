@@ -2,46 +2,6 @@ server {
     listen       80  default;
     server_name  droneyep.com www.droneyep.com;
     return       301 https://$server_name$request_uri;
-    root   /www/droneyep/app;
-    index  index.php index.html index.htm;
-    #charset koi8-r;
-        
-    access_log /dev/null;
-    #access_log  /var/log/nginx/nginx.localhost.access.log  main;
-    error_log  /var/log/nginx/nginx.localhost.error.log  warn;
-    
-    #error_page  404              /404.html;
-
-    # redirect server error pages to the static page /50x.html
-    #
-    error_page   500 502 503 504  /50x.html;
-    location = /50x.html {
-        root   /usr/share/nginx/html;
-    }
-
-    location / {
-         try_files $uri $uri/ /index.php$is_args$args;
-    }
-    # proxy the PHP scripts to Apache listening on 127.0.0.1:80
-    #
-    #location ~ \.php$ {
-    #    proxy_pass   http://127.0.0.1;
-    #}
-
-    # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
-    #
-    location ~ \.php$ {
-        fastcgi_pass   php:9000;
-        include        fastcgi-php.conf;
-        include        fastcgi_params;
-    }
-
-    # deny access to .htaccess files, if Apache's document root
-    # concurs with nginx's one
-    #
-    #location ~ /\.ht {
-    #    deny  all;
-    #}
 }
 
 server {
@@ -74,7 +34,8 @@ server {
 
     location / {
          try_files $uri $uri/ /index.php$is_args$args;
-    } 
+    }
+
     # proxy the PHP scripts to Apache listening on 127.0.0.1:80
     #
     #location ~ \.php$ {
@@ -87,13 +48,51 @@ server {
         fastcgi_pass   php:9000;
         include        fastcgi-php.conf;
         include        fastcgi_params;
-    }
 
+        set $skip_cache 0;
+        # POST requests and url's with a query string should always skip cache
+        if ($request_method = POST) {
+            set $skip_cache 1;
+        }
+        if ($query_string != "") {
+            set $skip_cache 1;
+        }
+        # Don't cache url's containing the following segments
+        if ($request_uri ~* "/wp-admin/|/xmlrpc.php|wp-.*.php|/feed/|index.php|sitemap(_index)?.xml") {
+            set $skip_cache 1;
+        }
+        # Don't use the cache for logged in users or recent commenters
+        if ($http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_no_cache|wordpress_logged_in") {
+            set $skip_cache 1;
+        }
+        # (for some reason, add_header fails if included in prior if-block)
+        if ($skip_cache = 1) {
+            add_header Set-Cookie "_mcnc=1; Max-Age=2; Path=/";
+            add_header X-Microcachable "0";
+        }
+        # Bypass cache if no-cache cookie is set
+        if ($http_cookie ~* "_mcnc") {
+            set $skip_cache 1;
+        }
+
+        fastcgi_cache_bypass $skip_cache;
+        fastcgi_no_cache $skip_cache;
+        fastcgi_cache cachezone;
+        include fastcgi_params;
+        fastcgi_buffer_size 128k;
+        fastcgi_connect_timeout 60s;
+        fastcgi_send_timeout 60s;
+        fastcgi_read_timeout 60s;
+        fastcgi_buffers 256 16k;
+        fastcgi_busy_buffers_size 256k;
+        fastcgi_temp_file_write_size 256k;
+    }
+    
     # deny access to .htaccess files, if Apache's document root
     # concurs with nginx's one
     #
-    #location ~ /\.ht {
-    #    deny  all;
-    #}
+    location ~ /\.ht {
+        deny  all;
+    }
 }
 
