@@ -1,10 +1,11 @@
 server {
     listen       80  default;
     server_name  droneyep.com www.droneyep.com;
+    return       301 https://$server_name$request_uri;
     root   /www/droneyep/app;
     index  index.php index.html index.htm;
     #charset koi8-r;
-    
+        
     access_log /dev/null;
     #access_log  /var/log/nginx/nginx.localhost.access.log  main;
     error_log  /var/log/nginx/nginx.localhost.error.log  warn;
@@ -45,19 +46,24 @@ server {
 
 server {
     listen 443  default ssl http2;
-    server_name  localhost;
-    root   /www/localhost;
+    server_name  droneyep.com www.droneyep.com;
+    root   /www/droneyep/app;
     index  index.php index.html index.htm;
     #charset koi8-r;
-
+    location = /favicon.ico { log_not_found off; access_log off; }
+    location = /robots.txt { log_not_found off; access_log off; allow all; }
+    location ~* \.(css|gif|ico|jpeg|jpg|js|png|woff)$ {
+      expires max;
+      log_not_found off;
+    }
     access_log /dev/null;
     #access_log  /var/log/nginx/nginx.localhost.access.log  main;
     error_log  /var/log/nginx/nginx.localhost.error.log  warn;
 
     #error_page  404              /404.html;
 
-    ssl_certificate /ssl/localhost/localhost.crt;
-    ssl_certificate_key /ssl/localhost/localhost.key;
+    ssl_certificate /ssl/droneyep.com/droneyep.com.pem;
+    ssl_certificate_key /ssl/droneyep.com/droneyep.com.key;
 
     # redirect server error pages to the static page /50x.html
     #
@@ -66,6 +72,9 @@ server {
         root   /usr/share/nginx/html;
     }
 
+    location / {
+         try_files $uri $uri/ /index.php$is_args$args;
+    } 
     # proxy the PHP scripts to Apache listening on 127.0.0.1:80
     #
     #location ~ \.php$ {
